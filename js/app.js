@@ -171,8 +171,13 @@ class Deck {
     this.cuePoint = 0; this.hotCues = [null, null, null, null];
     this.loop = null; // {start, end, beats}
     this.chanGainVal = 0.9;
+    this.beatOffsetSec = 0; // first-beat position from TempoDetect (0 for demos)
+    this.bpmSource = 'manual'; // manual | demo | auto | auto-low | analyzing
+    this.detectConfidence = 0; this.rawDetectedBpm = 0;
+    this.sections = []; this.barRms = []; this.barDb = [];
+    this.tapTimes = [];
     this.el = {};
-    ['title', 'artist', 'bpm', 'effbpm', 'elapsed', 'remain', 'wf', 'dots', 'play', 'pitch', 'pitchval', 'loopstate']
+    ['title', 'artist', 'bpm', 'effbpm', 'elapsed', 'remain', 'wf', 'dots', 'play', 'pitch', 'pitchval', 'loopstate', 'bpmbadge', 'secinfo']
       .forEach((n) => { this.el[n] = $(n + '-' + key); });
     this.wfCtx = this.el.wf.getContext('2d');
   }
@@ -200,8 +205,55 @@ class Deck {
     }
     return p;
   }
-  beatFloat() { return this.buffer ? this.position() * this.trackBpm / 60 : null; }
-  beatInMeasure() { const b = this.beatFloat(); return b == null ? 0 : (Math.floor(b) % 4) + 1; }
+  beatFloat() { return this.buffer ? (this.position() - this.beatOffsetSec) * this.trackBpm / 60 : null; }
+  beatInMeasure() { const b = this.beatFloat(); return b == null ? 0 : (((Math.floor(b) % 4) + 4) % 4) + 1; }
+  /* RMS section containing the current playhead (bar = 4 beats from beatOffsetSec). */
+  sectionInfo() {
+    if (!this.buffer || !this.sections.length) return null;
+    const beat = this.beatFloat() || 0;
+    const totalBars = this.sections.reduce((a, s) => a + s.lengthBars, 0);
+    let bar = clamp(Math.floor(beat / 4), 0, Math.max(0, totalBars - 1));
+    if (beat < 0) bar = 0;
+    for (let i = 0; i < this.sections.length; i++) {
+      const s = this.sections[i];
+      if (bar >= s.startBar && bar < s.startBar + s.lengthBars) {
+        return {
+          sectionIndex: i, section: s, barIndex: bar,
+          barInSection: bar - s.startBar + 1,
+          barsToNext: s.startBar + s.lengthBars - bar,
+        };
+      }
+    }
+    const last = this.sections[this.sections.length - 1];
+    return { sectionIndex: this.sections.length - 1, section: last, barIndex: bar, barInSection: last.lengthBars, barsToNext: 0 };
+  }
+  rmsNow() {
+    if (!this.buffer || !this.barRms.length) return 0;
+    const bar = clamp(Math.floor((this.beatFloat() || 0) / 4), 0, this.barRms.length - 1);
+    return this.barRms[bar] || 0;
+  }
+  updateBpmBadge() {
+    const b = this.el.bpmbadge; if (!b) return;
+    let txt = 'MANUAL', cls = 'manual';
+    if (this.bpmSource === 'auto') { txt = 'AUTO ' + this.trackBpm.toFixed(1); cls = 'auto'; }
+    else if (this.bpmSource === 'auto-low') { txt = 'AUTO? ' + this.trackBpm.toFixed(1); cls = 'auto-low'; }
+    else if (this.bpmSource === 'demo') { txt = 'DEMO'; cls = 'demo'; }
+    else if (this.bpmSource === 'analyzing') { txt = 'ANALYZING BPM…'; cls = 'analyzing'; }
+    b.textContent = txt; b.className = 'bpm-badge ' + cls;
+    b.title = this.rawDetectedBpm ? 'detected raw ' + this.rawDetectedBpm.toFixed(2) + ' BPM, confidence ' + this.detectConfidence.toFixed(2) : '';
+  }
+  refreshSections() {
+    if (!this.buffer || !window.RmsAnalyze) { this.sections = []; this.barRms = []; this.barDb = []; return; }
+    const data = window.RmsAnalyze.analyzeSections(this.buffer, this.trackBpm, this.beatOffsetSec);
+    this.sections = data.sections; this.barRms = data.barRms; this.barDb = data.barDb;
+  }
+  setBpmManual(bpm) {
+    this.trackBpm = clamp(Math.round(bpm * 100) / 100, 30, 300);
+    this.el.bpm.value = this.trackBpm;
+    this.bpmSource = 'manual'; this.updateBpmBadge();
+    this.refreshSections();
+    this.updateEff(); publishSoon();
+  }
   _startSource(atPos) {
     this._stopSource();
     const src = ctx.createBufferSource();
@@ -251,7 +303,7 @@ class Deck {
     if (!this.buffer) return;
     const spb = 60 / this.trackBpm;
     const startBeat = Math.floor(this.beatFloat() || 0);
-    const start = startBeat * spb;
+    const start = this.beatOffsetSec + startBeat * spb;
     this.loop = { start, end: Math.min(this.duration, start + beats * spb), beats };
     if (this.playing && this.position() >= this.loop.end) this.seek(this.loop.start);
     this.el.loopstate.textContent = 'LOOP ' + beats;
@@ -273,9 +325,17 @@ class Deck {
     if (this.playing) return this.loop ? 'Looping' : 'Playing';
     return this.offset > 0.05 ? 'Paused' : 'Cued';
   }
-  async loadBuffer(buffer, title, artist, bpm) {
+  async loadBuffer(buffer, title, artist, bpm, opts = {}) {
     this.pause(); this._stopSource();
     this.buffer = buffer; this.title = title; this.artist = artist; this.trackBpm = bpm;
+    this.beatOffsetSec = opts.beatOffsetSec || 0;
+    this.bpmSource = opts.source || 'manual';
+    this.detectConfidence = opts.confidence || 0;
+    this.rawDetectedBpm = opts.rawBpm || 0;
+    if (opts.sectionsData) {
+      this.sections = opts.sectionsData.sections; this.barRms = opts.sectionsData.barRms; this.barDb = opts.sectionsData.barDb;
+    } else this.refreshSections();
+    this.updateBpmBadge();
     this.offset = 0; this.cuePoint = 0; this.hotCues = [null, null, null, null]; this.clearLoop();
     this.el.title.textContent = title; this.el.artist.textContent = artist;
     this.el.bpm.value = bpm;
@@ -288,10 +348,14 @@ class Deck {
   }
   toState(masterId) {
     const beat = this.beatFloat();
+    const info = this.sectionInfo();
     return {
       deviceId: this.deviceId,
       loaded: !!this.buffer,
-      track: this.buffer ? { title: this.title, artist: this.artist, trackId: 0, bpm: this.trackBpm, durationSec: +this.duration.toFixed(2) } : null,
+      track: this.buffer ? {
+        title: this.title, artist: this.artist, trackId: 0, bpm: this.trackBpm, durationSec: +this.duration.toFixed(2),
+        sections: this.sections.map((s) => ({ ...s })),
+      } : null,
       playState: this.playState(),
       isPlaying: this.playing,
       isMaster: this.deviceId === masterId,
@@ -305,6 +369,15 @@ class Deck {
       beatsUntilCue: this.buffer ? +(((this.cuePoint - this.position()) * this.trackBpm) / 60).toFixed(2) : null,
       positionSec: +this.position().toFixed(3),
       waveform: this.peaks.slice(),
+      /* additive extensions (ECOSYSTEM backwards-compat: new fields allowed) */
+      beatOffsetSec: +this.beatOffsetSec.toFixed(3),
+      bpmConfidence: +this.detectConfidence.toFixed(3),
+      rmsNow: +this.rmsNow().toFixed(4),
+      energy: info ? info.section.energy : 0,
+      sectionIndex: info ? info.sectionIndex : -1,
+      barInSection: info ? info.barInSection : 0,
+      sectionLengthBars: info ? info.section.lengthBars : 0,
+      barsToNextSection: info ? info.barsToNext : 0,
     };
   }
   tickEnded() {
@@ -322,6 +395,18 @@ class Deck {
       c.fillText('NO TRACK', W / 2, H / 2 + 4); return;
     }
     const pos = this.position(), frac = this.duration ? pos / this.duration : 0;
+    if (this.sections.length && this.duration) {
+      this.sections.forEach((s, i) => {
+        const x0 = (s.startSec / this.duration) * W;
+        const wdt = (((s.lengthBars * 4 * 60) / this.trackBpm) / this.duration) * W;
+        if (s.energy >= 0.75) c.fillStyle = 'rgba(232,201,122,0.12)';
+        else if (i % 2 === 0) c.fillStyle = 'rgba(255,255,255,0.05)';
+        else return;
+        c.fillRect(x0, 0, wdt, H);
+      });
+      c.fillStyle = 'rgba(255,255,255,0.35)';
+      this.sections.forEach((s) => { const x = (s.startSec / this.duration) * W; c.fillRect(x, 0, 1, 8); });
+    }
     if (this.loop) {
       c.fillStyle = 'rgba(255,255,255,0.13)';
       c.fillRect((this.loop.start / this.duration) * W, 0, ((this.loop.end - this.loop.start) / this.duration) * W, H);
@@ -365,7 +450,7 @@ function currentMasterBpm() {
 let freeBeat = 0, lastTickCtx = 0;
 function masterBeatFloat() {
   const m = masterDeck();
-  if (m.buffer && m.playing) return m.beatFloat() || 0;
+  if (m.buffer && m.playing) return Math.max(0, m.beatFloat() || 0);
   return freeBeat;
 }
 
@@ -502,7 +587,7 @@ function nextBeatTime() {
   if (m.buffer && m.playing) {
     const beat = m.beatFloat() || 0;
     const nextBeat = Math.floor(beat) + 1;
-    const posSec = nextBeat * 60 / m.trackBpm;
+    const posSec = m.beatOffsetSec + nextBeat * 60 / m.trackBpm;
     return ctx.currentTime + (posSec - m.position()) / m.rate;
   }
   const bpm = currentMasterBpm();
@@ -529,6 +614,15 @@ function playPadScheduled(i, when) {
  * mode 'live', devices ['HoloDeck 1','HoloDeck 2'], deck deviceIds 11/12. */
 let trackChangeSeq = 0;
 let lastMasterTrackKey = '';
+/* rmsTransitionSeq: increments ONLY when the PLAYING master deck crosses an
+ * RMS section boundary live on the same track. HoloMapper's "RMS Transitions"
+ * keys clip triggers off this seq (never raw RMS) so a re-snapshot can't
+ * double-fire — same convention as trackChangeSeq. Seeks/pauses update the
+ * baseline silently and never fire it. */
+let rmsTransitionSeq = 0;
+let lastMasterSectionKey = '';
+let lastMasterSectionIdx = -1;
+let lastMasterSectionTrackKey = '';
 function trackChanged(deck) { /* seq increments centrally in buildSyncState (master track identity) */ }
 let bc = null;
 try { bc = new BroadcastChannel('holodecks-sync'); } catch (e) { bc = null; }
@@ -543,6 +637,17 @@ function buildSyncState() {
     if (lastMasterTrackKey !== '') trackChangeSeq++;
     lastMasterTrackKey = mKey;
   }
+  // RMS transition crossing: same playing master track, section changed
+  const mState = decksState.find((d) => d.deviceId === masterId);
+  const secIdx = mState ? mState.sectionIndex : -1;
+  const secKey = mKey + '|sec:' + secIdx;
+  if (mState && m.playing && secIdx >= 0 && lastMasterSectionTrackKey === mKey
+      && lastMasterSectionIdx >= 0 && secIdx !== lastMasterSectionIdx) {
+    rmsTransitionSeq++;
+  }
+  lastMasterSectionKey = secKey;
+  lastMasterSectionIdx = secIdx;
+  lastMasterSectionTrackKey = mKey;
   return {
     mode: 'live',
     networkStatus: wsOpen ? 'HOLODECKS + HOLOSYNC LINK' : 'HOLODECKS LOCAL',
@@ -551,6 +656,7 @@ function buildSyncState() {
     masterDeviceId: masterId,
     masterBpm: m.buffer ? +currentMasterBpm().toFixed(3) : null,
     trackChangeSeq,
+    rmsTransitionSeq,
     timestamp: Date.now(),
   };
 }
@@ -603,6 +709,16 @@ function updateSyncPanel(s) {
   $('so-beat').textContent = md && md.beat != null ? Math.floor(md.beat) + 1 + ' / bar ' + (Math.floor(md.beat / 4) + 1) : '—';
   $('so-deck').textContent = s.masterDeviceId === 11 ? 'A' : s.masterDeviceId === 12 ? 'B' : '—';
   $('so-seq').textContent = s.trackChangeSeq;
+  const rmsEl = $('so-rms');
+  if (rmsEl) {
+    if (md && md.sectionIndex >= 0 && md.track && md.track.sections && md.track.sections.length) {
+      const eLabel = md.energy >= 0.75 ? 'HIGH' : md.energy >= 0.45 ? 'MID' : 'LOW';
+      rmsEl.textContent = 'RMS SECTION ' + (md.sectionIndex + 1) + '/' + md.track.sections.length +
+        ' · bar ' + md.barInSection + ' of ' + md.sectionLengthBars +
+        ' · energy ' + eLabel + ' · next in ' + md.barsToNextSection + ' bars' +
+        ' · transitions ' + s.rmsTransitionSeq;
+    } else rmsEl.textContent = 'RMS SECTION —';
+  }
   $('follow-readout').textContent = 'HoloMapper would follow: BPM ' + (s.masterBpm ? s.masterBpm.toFixed(2) : '—') +
     ', beat ' + (md && md.beatInMeasure ? md.beatInMeasure : '—') + ' of bar ' + (md && md.beat != null ? Math.floor(md.beat / 4) + 1 : '—') +
     (md && md.track ? ' — ' + md.track.title : '');
@@ -672,6 +788,13 @@ function ticker() {
         s.classList.toggle('on', d.playing && i === bim - 1);
         s.classList.toggle('bar', i === 0);
       });
+      if (d.el.secinfo) {
+        const info = d.sectionInfo();
+        d.el.secinfo.textContent = info
+          ? 'SEC ' + (info.sectionIndex + 1) + ' · ' + info.barInSection + '/' + info.section.lengthBars + ' · ' +
+            (info.section.energy >= 0.75 ? 'HIGH' : info.section.energy >= 0.45 ? 'MID' : 'LOW')
+          : 'SEC —';
+      }
     }
   });
   // header readouts
@@ -706,26 +829,78 @@ function applyCrossfader() {
 $('xfader').addEventListener('input', applyCrossfader);
 $('master-vol').addEventListener('input', (e) => { if (masterGain) masterGain.gain.value = parseFloat(e.target.value); });
 
+/* File-load analysis flow (also the test entry point): paint ANALYZING first,
+ * yield so the label renders, detect BPM + first beat, analyse RMS sections,
+ * then load with the detected grid. Any detection failure falls back to the
+ * BPM input value with a MANUAL badge. */
+const yieldFrame = () => new Promise((r) => setTimeout(r, 30));
+async function analyzeAndLoad(key, buffer, title, artist = 'Local file') {
+  const deck = deckByKey[key];
+  if (!deck || !buffer) return null;
+  deck.bpmSource = 'analyzing'; deck.updateBpmBadge();
+  await yieldFrame(); // let ANALYZING BPM… paint before the heavy loop
+  let det = null;
+  try { det = window.TempoDetect ? window.TempoDetect.detect(buffer) : null; } catch (e) { det = null; }
+  let bpm, opts;
+  if (det && det.bpm > 0) {
+    bpm = det.bpm;
+    opts = {
+      beatOffsetSec: det.beatOffsetSec || 0,
+      confidence: det.confidence || 0,
+      rawBpm: det.rawBpm || det.bpm,
+      source: det.confidence < 0.35 ? 'auto-low' : 'auto',
+    };
+  } else {
+    bpm = clamp(parseFloat(deck.el.bpm.value) || 120, 40, 240);
+    opts = { source: 'manual' };
+  }
+  await yieldFrame();
+  try {
+    if (window.RmsAnalyze) opts.sectionsData = window.RmsAnalyze.analyzeSections(buffer, bpm, opts.beatOffsetSec || 0);
+  } catch (e) { /* sections are additive — load proceeds without them */ }
+  await deck.loadBuffer(buffer, title, artist, bpm, opts);
+  return det;
+}
+
 decks.forEach((deck) => {
   const k = deck.key;
   $('file-' + k).addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file || !ctx) return;
     try {
       const buf = await ctx.decodeAudioData(await file.arrayBuffer());
-      const bpmGuess = parseFloat($('bpm-' + k).value) || 120;
-      await deck.loadBuffer(buf, file.name.replace(/\.[^.]+$/, ''), 'Local file', bpmGuess);
+      await analyzeAndLoad(k, buf, file.name.replace(/\.[^.]+$/, ''));
     } catch (err) { console.warn('decode failed', err); }
   });
   $('demo-' + k).addEventListener('click', async () => {
     if (!ctx) return;
     $('demo-' + k).textContent = 'RENDERING…';
     const d = await renderDemo(k);
-    await deck.loadBuffer(d.buffer, d.title, d.artist, d.bpm);
+    await deck.loadBuffer(d.buffer, d.title, d.artist, d.bpm, { source: 'demo', beatOffsetSec: 0 });
     $('demo-' + k).textContent = 'LOAD DEMO';
   });
   $('bpm-' + k).addEventListener('change', (e) => {
-    deck.trackBpm = clamp(parseFloat(e.target.value) || deck.trackBpm, 40, 240);
-    deck.updateEff(); publishSoon();
+    deck.setBpmManual(parseFloat(e.target.value) || deck.trackBpm);
+  });
+  /* manual BPM correction row: fine adjust / half / double / tap tempo */
+  $('bpmminus-' + k).addEventListener('click', () => deck.setBpmManual(Math.round((deck.trackBpm - 0.1) * 10) / 10));
+  $('bpmplus-' + k).addEventListener('click', () => deck.setBpmManual(Math.round((deck.trackBpm + 0.1) * 10) / 10));
+  $('bpmhalf-' + k).addEventListener('click', () => deck.setBpmManual(deck.trackBpm / 2));
+  $('bpmdouble-' + k).addEventListener('click', () => deck.setBpmManual(deck.trackBpm * 2));
+  $('tap-' + k).addEventListener('click', (e) => {
+    /* event.timeStamp is stamped when the tap/click actually happened, not
+     * when this (possibly delayed) handler runs on a busy main thread. */
+    const now = (e && e.timeStamp) ? e.timeStamp : performance.now();
+    if (deck.tapTimes.length && now - deck.tapTimes[deck.tapTimes.length - 1] > 2000) deck.tapTimes = [];
+    deck.tapTimes.push(now);
+    if (deck.tapTimes.length > 7) deck.tapTimes.shift();
+    if (deck.tapTimes.length >= 4) {
+      // median interval: one sloppy tap shouldn't drag the tempo
+      const ivs = [];
+      for (let i = 1; i < deck.tapTimes.length; i++) ivs.push(deck.tapTimes[i] - deck.tapTimes[i - 1]);
+      ivs.sort((a, b) => a - b);
+      const medMs = ivs[Math.floor(ivs.length / 2)];
+      if (medMs > 150) deck.setBpmManual(Math.round((60000 / medMs) * 10) / 10);
+    }
   });
   $('play-' + k).addEventListener('click', () => deck.togglePlay());
   $('cue-' + k).addEventListener('click', () => {
@@ -902,5 +1077,8 @@ window.__HOLODECKS__ = {
   masterDeckKey: () => masterDeck().key,
   masterBpm: () => currentMasterBpm(),
   masterBeat: () => masterBeatFloat(),
+  detectBPM: (buffer) => window.TempoDetect.detect(buffer),
+  analyzeSections: (buffer, bpm, off) => window.RmsAnalyze.analyzeSections(buffer, bpm, off),
+  analyzeAndLoad,
 };
 publishSync();

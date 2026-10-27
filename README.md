@@ -72,3 +72,8 @@ HoloDecks only ever publishes tempo — nothing flows back upstream.
 ```bash
 node tests/prove.mjs   # headless Chromium drives every control through the UI
 ```
+
+## v1.1 additions
+- **Auto BPM**: loading a file detects its BPM and first beat automatically (watch for the AUTO badge); fix it with the -/+ , 1/2, x2, TAP row if needed.
+- **RMS sections**: every loaded track is split into energy sections (shown shaded on the waveform, e.g. SEC 2 · 9/32 · HIGH). Section data rides the sync feed for HoloMapper's RMS Transitions.
+- **Pair phone**: PAIR PHONE in the header shows a QR — scan it and your phone opens the full HoloDecks as a synced control surface for the desktop (same link style as HoloMapper).

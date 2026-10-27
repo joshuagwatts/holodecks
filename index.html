@@ -27,9 +27,29 @@
   </div>
   <div class="top-right">
     <div id="sync-pill" class="pill local">SYNC · LOCAL</div>
+    <div id="link-pill" class="pill local">LOCAL</div>
+    <div id="link-role" class="clock">HOST</div>
     <div id="clock-readout" class="clock">BAR 1 · BEAT 1</div>
+    <button id="pair-btn">PAIR PHONE</button>
   </div>
 </header>
+
+
+<div id="pair-panel" class="off">
+  <div class="pair-card">
+    <div class="wordmark">PAIR <span>PHONE</span></div>
+    <p>Scan with your phone — HoloDecks opens there in full, linked to this screen.<br>
+    Audio stays on the host; the phone is a control surface.</p>
+    <div id="pair-qr"></div>
+    <div id="pair-code" class="pair-code">······</div>
+    <div id="pair-url" class="pair-url"></div>
+    <ul id="pair-peers" class="pair-peers"></ul>
+    <div class="pair-btns">
+      <button id="pair-copy">COPY LINK</button>
+      <button id="pair-close">CLOSE</button>
+    </div>
+  </div>
+</div>
 
 <main id="decks-row">
 
@@ -50,7 +70,16 @@
       <div class="stat"><span class="stat-label">ELAPSED</span><span class="stat-val" id="elapsed-a">0:00</span></div>
       <div class="stat"><span class="stat-label">REMAIN</span><span class="stat-val" id="remain-a">-0:00</span></div>
     </div>
+    <div class="bpm-fix">
+      <span class="bpm-badge manual" id="bpmbadge-a">MANUAL</span>
+      <button id="bpmminus-a" title="BPM -0.1">−</button>
+      <button id="bpmplus-a" title="BPM +0.1">+</button>
+      <button id="bpmhalf-a" title="Half tempo">½</button>
+      <button id="bpmdouble-a" title="Double tempo">×2</button>
+      <button id="tap-a" title="Tap tempo">TAP</button>
+    </div>
     <canvas class="waveform" id="wf-a" width="640" height="96"></canvas>
+    <div class="sec-info" id="secinfo-a">SEC —</div>
     <div class="beat-dots" id="dots-a"><span></span><span></span><span></span><span></span></div>
     <div class="deck-load-row">
       <label class="load-btn" for="file-a">LOAD FILE</label>
@@ -133,7 +162,16 @@
       <div class="stat"><span class="stat-label">ELAPSED</span><span class="stat-val" id="elapsed-b">0:00</span></div>
       <div class="stat"><span class="stat-label">REMAIN</span><span class="stat-val" id="remain-b">-0:00</span></div>
     </div>
+    <div class="bpm-fix">
+      <span class="bpm-badge manual" id="bpmbadge-b">MANUAL</span>
+      <button id="bpmminus-b" title="BPM -0.1">−</button>
+      <button id="bpmplus-b" title="BPM +0.1">+</button>
+      <button id="bpmhalf-b" title="Half tempo">½</button>
+      <button id="bpmdouble-b" title="Double tempo">×2</button>
+      <button id="tap-b" title="Tap tempo">TAP</button>
+    </div>
     <canvas class="waveform" id="wf-b" width="640" height="96"></canvas>
+    <div class="sec-info" id="secinfo-b">SEC —</div>
     <div class="beat-dots" id="dots-b"><span></span><span></span><span></span><span></span></div>
     <div class="deck-load-row">
       <label class="load-btn" for="file-b">LOAD FILE</label>
@@ -248,6 +286,7 @@
       <div>MASTER DECK <b id="so-deck">—</b></div>
       <div>TRACK SEQ <b id="so-seq">0</b></div>
     </div>
+    <div id="so-rms">RMS SECTION —</div>
     <div id="follow-readout">HoloMapper would follow: BPM —, beat —</div>
     <pre id="sync-peek">{}</pre>
   </div>
@@ -267,6 +306,11 @@
   </div>
 </footer>
 
+<script src="js/tempo.js"></script>
+<script src="js/rms.js"></script>
 <script src="js/app.js"></script>
+<script src="vendor/paho-mqtt-min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="js/sync.js"></script>
 </body>
 </html>

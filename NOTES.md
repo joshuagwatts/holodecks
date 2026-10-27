@@ -64,3 +64,9 @@ except the mixer gains/EQ, which are also the native engine's mixer surface.
 `window.__HOLODECKS__` exposes deck objects, `getSyncState()`, `masterLevel()`
 (analyser RMS), sequencer state + note log, and sampler trigger counts — that's
 what `tests/prove.mjs` asserts against while driving the real UI.
+
+## v1.1 (2026-10-27) — BPM detection, RMS sections, mobile sync
+- js/tempo.js: real BPM + first-beat detection on file load (kick-weighted onset envelope, autocorrelation 60-180, octave walk-up rule, integer snap). v1 shipped with NO detection (loaded files inherited the BPM box value) — Joshua caught it on mobile. Correction row per deck: -/+ 0.1, 1/2, x2, TAP.
+- js/rms.js: per-bar RMS sections (rolling median, >4dB sustained change = boundary, true lengths reported). DeckState gains rmsNow/energy/section fields + track.sections; SyncState gains rmsTransitionSeq for HoloMapper's future "RMS Transitions" setting (fires clip on drastic RMS change; keyed off seq, never raw RMS).
+- js/sync.js: HoloMapper-style phone link — MQTT/WSS (emqx>hivemq>mosquitto, sequential), pair QR/code (?sync=CODE), phone = FULL app as guest control surface, desktop host owns audio. Presence heartbeat 4s + FNV state hash; SYNCED only when peer fresh <8s AND hashes match; auto-heal.
+- Prove-out: 73/73 (tests/prove.mjs), incl. detected-vs-true exact on 100/122/128/138/145/160, RMS sections exact 16/32/16, two-page MQTT sync test on a local aedes relay.

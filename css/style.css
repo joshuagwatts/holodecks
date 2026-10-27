@@ -188,3 +188,46 @@ canvas.waveform { width: 100%; height: 84px; background: #101012; border: 1px so
   #instruments, #sync-strip { grid-template-columns: 1fr; }
   #steps { grid-template-columns: repeat(8, 1fr); }
 }
+
+/* BPM correction row + badges + RMS readouts */
+.bpm-fix { display: flex; gap: 6px; align-items: center; margin: 0 0 6px; flex-wrap: wrap; }
+.bpm-fix button { padding: 4px 10px; font-size: .72rem; font-weight: 700; min-width: 34px; }
+.bpm-badge {
+  font-size: .65rem; font-weight: 700; letter-spacing: 1px; padding: 4px 9px;
+  border-radius: 999px; border: 1px solid #3a3a40; color: #9a9aa4; font-variant-numeric: tabular-nums;
+}
+.bpm-badge.auto { color: #7ee2a0; border-color: #2c6b44; }
+.bpm-badge.auto-low { color: #e8c97a; border-color: #6b5a24; }
+.bpm-badge.analyzing { color: #e8c97a; border-color: #6b5a24; }
+.bpm-badge.demo { color: #b9b9c2; }
+.sec-info { color: #8a8a96; font-size: .68rem; letter-spacing: 1.5px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+#so-rms { margin-top: 8px; color: #b9b9c2; font-size: .85rem; font-variant-numeric: tabular-nums; }
+
+/* phone link (mobile sync) */
+#pair-btn { font-weight: 700; }
+#link-role { color: #b9b9c2; }
+#pair-panel {
+  position: fixed; inset: 0; z-index: 60; background: rgba(5,5,7,.82);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+#pair-panel.off { display: none; }
+.pair-card {
+  background: #1a1a1c; border: 1px solid #33333a; border-radius: 14px; padding: 22px 26px;
+  text-align: center; max-width: 420px; width: 100%;
+}
+.pair-card p { color: #9a9aa4; line-height: 1.5; font-size: .85rem; }
+#pair-qr { display: flex; justify-content: center; margin: 10px 0; }
+#pair-qr img, #pair-qr canvas, #pair-qr table { background: #fff; padding: 6px; border-radius: 8px; }
+.pair-code { font-size: 1.9rem; font-weight: 800; letter-spacing: 8px; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.pair-url { color: #77777f; font-size: .68rem; word-break: break-all; }
+.pair-peers { list-style: none; padding: 0; margin: 14px 0; color: #b9b9c2; font-size: .78rem; line-height: 1.7; text-align: left; }
+.pair-btns { display: flex; gap: 8px; justify-content: center; }
+body.guest .deck-load-row label.load-btn { opacity: .45; }
+
+@media (max-width: 700px) {
+  #topbar { flex-wrap: wrap; gap: 8px; }
+  .wordmark { font-size: 1.1rem; letter-spacing: 2px; }
+  .mr-value { font-size: 1.7rem; }
+  .mr-label { letter-spacing: 2px; }
+  .top-right { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+}
