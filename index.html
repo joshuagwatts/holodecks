@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HoloDecks</title>
+<meta name="description" content="HoloDecks — clean DJ controller with sampler, synth sequencer and arpeggiator. Decks are tempo: publishes HoloSYNC SyncState for HoloMapper + lighting.">
+<meta name="theme-color" content="#111113">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="power-overlay">
+  <div class="power-card">
+    <div class="wordmark-lg">HOLO<span>DECKS</span></div>
+    <p>DJ controller · sampler · synth sequencer · arp<br>Decks are tempo — everything follows the master deck.</p>
+    <button id="power-btn">TAP TO POWER ON</button>
+  </div>
+</div>
+
+<header id="topbar">
+  <div class="wordmark">HOLO<span>DECKS</span></div>
+  <div class="master-readout">
+    <div class="mr-label">MASTER BPM</div>
+    <div id="master-bpm" class="mr-value">124.00</div>
+    <div id="master-deck-label" class="mr-sub">DECK A</div>
+  </div>
+  <div class="top-right">
+    <div id="sync-pill" class="pill local">SYNC · LOCAL</div>
+    <div id="clock-readout" class="clock">BAR 1 · BEAT 1</div>
+  </div>
+</header>
+
+<main id="decks-row">
+
+  <!-- ================= DECK A ================= -->
+  <section class="deck deck-a" id="deck-a">
+    <div class="deck-head">
+      <div class="deck-tag">A</div>
+      <div class="deck-meta">
+        <div class="track-title" id="title-a">No track loaded</div>
+        <div class="track-artist" id="artist-a">Load a file or the demo track</div>
+      </div>
+      <button class="master-btn" id="master-a" title="Make master">MASTER</button>
+    </div>
+    <div class="deck-stats">
+      <div class="stat"><span class="stat-label">TRACK BPM</span>
+        <span class="stat-val"><input id="bpm-a" class="bpm-input" type="number" min="60" max="200" step="0.01" value="124"> </span></div>
+      <div class="stat"><span class="stat-label">EFFECTIVE</span><span class="stat-val accent" id="effbpm-a">—</span></div>
+      <div class="stat"><span class="stat-label">ELAPSED</span><span class="stat-val" id="elapsed-a">0:00</span></div>
+      <div class="stat"><span class="stat-label">REMAIN</span><span class="stat-val" id="remain-a">-0:00</span></div>
+    </div>
+    <canvas class="waveform" id="wf-a" width="640" height="96"></canvas>
+    <div class="beat-dots" id="dots-a"><span></span><span></span><span></span><span></span></div>
+    <div class="deck-load-row">
+      <label class="load-btn" for="file-a">LOAD FILE</label>
+      <input id="file-a" type="file" accept="audio/*" hidden>
+      <button class="load-btn" id="demo-a">LOAD DEMO</button>
+      <button class="sync-btn" id="sync-a">SYNC</button>
+      <span class="loop-state" id="loopstate-a"></span>
+    </div>
+    <div class="transport">
+      <button class="cue-btn" id="cue-a">CUE</button>
+      <button class="play-btn" id="play-a" aria-label="Play/Pause Deck A">▶</button>
+      <div class="nudge">
+        <button id="nudge-dn-a" title="Jog nudge down">− JOG</button>
+        <button id="nudge-up-a" title="Jog nudge up">JOG +</button>
+      </div>
+    </div>
+    <div class="hotcues" id="hotcues-a">
+      <button data-cue="0">1</button><button data-cue="1">2</button>
+      <button data-cue="2">3</button><button data-cue="3">4</button>
+      <span class="hc-hint">HOT CUES — click empty to set · click set to jump · right-click clears</span>
+    </div>
+    <div class="loop-row">
+      <button id="loop4-a">LOOP 4</button>
+      <button id="loop8-a">LOOP 8</button>
+      <button id="loopoff-a">LOOP OFF</button>
+    </div>
+    <div class="pitch-row">
+      <span class="pitch-label">PITCH</span>
+      <input id="pitch-a" type="range" min="-8" max="8" step="0.01" value="0">
+      <span class="pitch-val" id="pitchval-a">+0.00%</span>
+      <button class="pitch-zero" id="pitchzero-a">0</button>
+    </div>
+  </section>
+
+  <!-- ================= MIXER ================= -->
+  <section id="mixer">
+    <div class="mixer-title">MIXER</div>
+    <div class="channels">
+      <div class="chan chan-a">
+        <div class="chan-label a">A</div>
+        <label>HI<input id="eqhi-a" type="range" min="-24" max="24" step="0.5" value="0"></label>
+        <label>MID<input id="eqmid-a" type="range" min="-24" max="24" step="0.5" value="0"></label>
+        <label>LOW<input id="eqlow-a" type="range" min="-24" max="24" step="0.5" value="0"></label>
+        <label>GAIN<input id="gain-a" class="vert" type="range" min="0" max="1.25" step="0.01" value="0.9"></label>
+      </div>
+      <div class="master-chan">
+        <canvas id="vu" width="72" height="150"></canvas>
+        <label>MASTER<input id="master-vol" class="vert" type="range" min="0" max="1" step="0.01" value="0.85"></label>
+      </div>
+      <div class="chan chan-b">
+        <div class="chan-label b">B</div>
+        <label>HI<input id="eqhi-b" type="range" min="-24" max="24" step="0.5" value="0"></label>
+        <label>MID<input id="eqmid-b" type="range" min="-24" max="24" step="0.5" value="0"></label>
+        <label>LOW<input id="eqlow-b" type="range" min="-24" max="24" step="0.5" value="0"></label>
+        <label>GAIN<input id="gain-b" class="vert" type="range" min="0" max="1.25" step="0.01" value="0.9"></label>
+      </div>
+    </div>
+    <div class="xfader-row">
+      <span>A</span>
+      <input id="xfader" type="range" min="0" max="1" step="0.001" value="0.5">
+      <span>B</span>
+    </div>
+    <div class="xfader-label">CROSSFADER</div>
+  </section>
+
+  <!-- ================= DECK B ================= -->
+  <section class="deck deck-b" id="deck-b">
+    <div class="deck-head">
+      <div class="deck-tag">B</div>
+      <div class="deck-meta">
+        <div class="track-title" id="title-b">No track loaded</div>
+        <div class="track-artist" id="artist-b">Load a file or the demo track</div>
+      </div>
+      <button class="master-btn" id="master-b" title="Make master">MASTER</button>
+    </div>
+    <div class="deck-stats">
+      <div class="stat"><span class="stat-label">TRACK BPM</span>
+        <span class="stat-val"><input id="bpm-b" class="bpm-input" type="number" min="60" max="200" step="0.01" value="126"></span></div>
+      <div class="stat"><span class="stat-label">EFFECTIVE</span><span class="stat-val accent" id="effbpm-b">—</span></div>
+      <div class="stat"><span class="stat-label">ELAPSED</span><span class="stat-val" id="elapsed-b">0:00</span></div>
+      <div class="stat"><span class="stat-label">REMAIN</span><span class="stat-val" id="remain-b">-0:00</span></div>
+    </div>
+    <canvas class="waveform" id="wf-b" width="640" height="96"></canvas>
+    <div class="beat-dots" id="dots-b"><span></span><span></span><span></span><span></span></div>
+    <div class="deck-load-row">
+      <label class="load-btn" for="file-b">LOAD FILE</label>
+      <input id="file-b" type="file" accept="audio/*" hidden>
+      <button class="load-btn" id="demo-b">LOAD DEMO</button>
+      <button class="sync-btn" id="sync-b">SYNC</button>
+      <span class="loop-state" id="loopstate-b"></span>
+    </div>
+    <div class="transport">
+      <button class="cue-btn" id="cue-b">CUE</button>
+      <button class="play-btn" id="play-b" aria-label="Play/Pause Deck B">▶</button>
+      <div class="nudge">
+        <button id="nudge-dn-b" title="Jog nudge down">− JOG</button>
+        <button id="nudge-up-b" title="Jog nudge up">JOG +</button>
+      </div>
+    </div>
+    <div class="hotcues" id="hotcues-b">
+      <button data-cue="0">1</button><button data-cue="1">2</button>
+      <button data-cue="2">3</button><button data-cue="3">4</button>
+      <span class="hc-hint">HOT CUES — click empty to set · click set to jump · right-click clears</span>
+    </div>
+    <div class="loop-row">
+      <button id="loop4-b">LOOP 4</button>
+      <button id="loop8-b">LOOP 8</button>
+      <button id="loopoff-b">LOOP OFF</button>
+    </div>
+    <div class="pitch-row">
+      <span class="pitch-label">PITCH</span>
+      <input id="pitch-b" type="range" min="-8" max="8" step="0.01" value="0">
+      <span class="pitch-val" id="pitchval-b">+0.00%</span>
+      <button class="pitch-zero" id="pitchzero-b">0</button>
+    </div>
+  </section>
+</main>
+
+<!-- ================= INSTRUMENTS ================= -->
+<section id="instruments">
+  <div class="inst-block sampler-block">
+    <div class="inst-head">
+      <span class="inst-title">SAMPLER</span>
+      <button id="quantize-btn" class="toggle on">QUANTIZE ON</button>
+      <span class="inst-hint">Click pad = play · drop an audio file on a pad, or right-click a pad to load your own</span>
+    </div>
+    <div id="pads">
+      <button class="pad" data-pad="0">KICK</button>
+      <button class="pad" data-pad="1">SNARE</button>
+      <button class="pad" data-pad="2">CLAP</button>
+      <button class="pad" data-pad="3">CLOSED HAT</button>
+      <button class="pad" data-pad="4">OPEN HAT</button>
+      <button class="pad" data-pad="5">PERC</button>
+      <button class="pad" data-pad="6">BASS STAB</button>
+      <button class="pad" data-pad="7">CHORD STAB</button>
+    </div>
+    <input id="pad-file" type="file" accept="audio/*" hidden>
+  </div>
+
+  <div class="inst-block seq-block">
+    <div class="inst-head">
+      <span class="inst-title">SYNTH SEQUENCER</span>
+      <button id="seq-play" class="toggle">SEQ PLAY</button>
+      <button id="arp-btn" class="toggle">ARP OFF</button>
+      <span class="inst-hint">Click a step to cycle: off → root → 3rd → 5th → octave. Steps lock to the master deck.</span>
+    </div>
+    <div id="steps"></div>
+    <div class="seq-controls">
+      <label>WAVE
+        <select id="synth-wave"><option value="sawtooth">SAW</option><option value="square">SQUARE</option><option value="triangle">TRI</option></select>
+      </label>
+      <label>ROOT
+        <select id="synth-root">
+          <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
+          <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
+          <option value="8">G#</option><option value="9" selected>A</option><option value="10">A#</option><option value="11">B</option>
+        </select>
+      </label>
+      <label>SCALE
+        <select id="synth-scale"><option value="minor" selected>MINOR</option><option value="major">MAJOR</option><option value="dorian">DORIAN</option></select>
+      </label>
+      <label>OCT <span id="oct-val">0</span>
+        <span class="oct-btns"><button id="oct-dn">−</button><button id="oct-up">+</button></span>
+      </label>
+      <label>CUTOFF<input id="synth-cutoff" type="range" min="200" max="12000" step="10" value="3200"></label>
+      <label>RESO<input id="synth-reso" type="range" min="0.5" max="18" step="0.1" value="6"></label>
+      <label>VOL<input id="synth-vol" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+    </div>
+    <div class="seq-controls arp-controls">
+      <label>ARP PATTERN
+        <select id="arp-pattern"><option value="up">UP</option><option value="down">DOWN</option><option value="updown">UP/DOWN</option><option value="random">RANDOM</option></select>
+      </label>
+      <label>ARP RATE
+        <select id="arp-rate"><option value="2">1/8</option><option value="1" selected>1/16</option></select>
+      </label>
+      <label>ARP OCTAVES
+        <select id="arp-octaves"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+      </label>
+      <label>GATE<input id="arp-gate" type="range" min="0.1" max="1" step="0.05" value="0.6"></label>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SYNC OUT + LIGHTING ================= -->
+<footer id="sync-strip">
+  <div class="sync-panel">
+    <div class="sync-head">
+      <span class="inst-title">SYNC OUT</span>
+      <span id="sync-status" class="pill local">LOCAL</span>
+      <button id="copy-sync">COPY SYNC STATE</button>
+    </div>
+    <div class="sync-grid">
+      <div>MASTER BPM <b id="so-bpm">—</b></div>
+      <div>BEAT / BAR <b id="so-beat">—</b></div>
+      <div>MASTER DECK <b id="so-deck">—</b></div>
+      <div>TRACK SEQ <b id="so-seq">0</b></div>
+    </div>
+    <div id="follow-readout">HoloMapper would follow: BPM —, beat —</div>
+    <pre id="sync-peek">{}</pre>
+  </div>
+  <div class="light-panel">
+    <div class="sync-head">
+      <span class="inst-title">LIGHTING PREVIEW — follows master deck, same data HoloMapper gets</span>
+      <button id="light-btn" class="toggle on">LIGHTS ON</button>
+      <select id="light-pattern">
+        <option value="chase">CHASE</option><option value="strobe">STROBE</option>
+        <option value="wash">WASH</option><option value="pulse">PULSE</option>
+      </select>
+    </div>
+    <div id="fixtures">
+      <div class="fixture"></div><div class="fixture"></div><div class="fixture"></div><div class="fixture"></div>
+      <div class="fixture"></div><div class="fixture"></div><div class="fixture"></div><div class="fixture"></div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
